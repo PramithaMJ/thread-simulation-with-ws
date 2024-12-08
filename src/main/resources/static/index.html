@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thread Simulation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        #connectionStatus {
+            font-size: 18px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="number"] {
+            width: 120px;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #threadStatus {
+            margin-top: 20px;
+            background-color: #fafafa;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .threadStatusItem {
+            background-color: #e8f5e9;
+            border-left: 5px solid #4CAF50;
+            margin-bottom: 10px;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+
+        .threadStatusItem strong {
+            font-weight: 700;
+            color: #333;
+        }
+
+        .threadStatusItem .status {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .threadStatusItem .progress {
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Thread Simulation</h1>
+    <div id="connectionStatus">Connecting...</div>
+    <div class="form-group">
+        <input type="number" id="threadCount" placeholder="Number of Threads" min="1">
+        <button onclick="startThreads()">Start Threads</button>
+    </div>
+    <div id="threadStatus"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+<script>
+    let stompClient = null;
+
+    function connect() {
+        const socket = new SockJS('http://localhost:8082/websocket');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            document.getElementById('connectionStatus').textContent = 'Connected!';
+
+            stompClient.subscribe('/topic/thread-status', function (message) {
+                const status = JSON.parse(message.body);
+                showThreadStatus(status);
+            });
+        }, function (error) {
+            document.getElementById('connectionStatus').textContent = 'Connection Error: ' + error;
+            console.error('STOMP connection error:', error);
+        });
+    }
+
+    function startThreads() {
+        const numberOfThreads = document.getElementById('threadCount').value;
+        if (!numberOfThreads || numberOfThreads <= 0) {
+            alert('Please enter a valid number of threads.');
+            return;
+        }
+
+        fetch(`http://localhost:8082/start-threads?numberOfThreads=${numberOfThreads}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                console.log('Threads started');
+            })
+            .catch(error => {
+                console.error('Error starting threads:', error);
+            });
+    }
+
+    function showThreadStatus(status) {
+        const statusDiv = document.getElementById('threadStatus');
+
+        // Check if a card for the thread already exists
+        let statusElement = document.getElementById(`thread-${status.threadId}`);
+
+        if (!statusElement) {
+            // Create a new card if it doesn't exist
+            statusElement = document.createElement('div');
+            statusElement.id = `thread-${status.threadId}`;
+            statusElement.classList.add('threadStatusItem');
+            statusDiv.appendChild(statusElement);
+        }
+
+        // Update the content of the card
+        statusElement.innerHTML = `
+        <strong>Thread: ${status.threadId}</strong>
+        <div class="status">Status: ${status.status}</div>
+        <div class="progress">Progress: ${status.progress}%</div>
+    `;
+    }
+
+
+    window.onload = connect;
+</script>
+</body>
+</html>
