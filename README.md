@@ -26,6 +26,7 @@ This is a Spring Boot application that demonstrates real-time thread simulation 
 ## Getting Started
 
 ### Clone the Repository
+
 ```bash
 git clone https://github.com/PramithaMJ/thread-simulation-with-ws
 cd thread-simulation
